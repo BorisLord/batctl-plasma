@@ -94,6 +94,14 @@ fi
 
 # ---- install C++ plugin + bundled batctl + polkit policy (system, one prompt)
 
+# Detect an existing batctl on the host to inform the user. The widget always
+# uses its own bundled copy (compiled-in path), so this is informational only.
+existing_batctl="$(command -v batctl 2>/dev/null || true)"
+if [[ -n "$existing_batctl" && "$existing_batctl" != "${BATCTL_DIR}/batctl" ]]; then
+    printf 'Note: a batctl is already installed at %s.\n' "$existing_batctl"
+    printf 'The widget uses its own bundled copy at %s/batctl; the two are independent.\n\n' "$BATCTL_DIR"
+fi
+
 # Single pkexec invocation so the user authenticates once. The C++ QML plugin
 # goes to the host QML module dir (resolved above); batctl and the policy to
 # their canonical system locations.
