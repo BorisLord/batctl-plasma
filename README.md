@@ -38,10 +38,28 @@ Fedora:
 sudo dnf install qt6-qtbase-devel qt6-qtdeclarative-devel cmake ninja-build gcc-c++
 ```
 
+With [mise](https://mise.jdx.dev) installed, the common tasks are wrapped:
+
+```bash
+mise run build      # configure + compile
+mise run test       # unit tests
+mise run lint       # shellcheck + clang-format + clang-tidy + qmllint + qmlformat
+mise run format     # apply all formatters
+mise run install-dev # sudo cmake --install + kpackagetool6 --upgrade
+mise run check      # clean build + tests + lint (local CI gate)
+```
+
+Otherwise, the manual commands:
+
 ```bash
 cmake -S . -B build -G Ninja
 cmake --build build --parallel
 ctest --test-dir build --output-on-failure
+
+# Install the C++ plugin to the system QML module dir (needed for the QML
+# import org.batctl.plasma to resolve) and the kpackage for the current user.
+sudo cmake --install build
+kpackagetool6 --type Plasma/Applet --upgrade build/package
 plasmawindowed org.batctl.plasma
 ```
 

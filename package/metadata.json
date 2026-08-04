@@ -7,13 +7,16 @@
         ],
         "Category": "System Information",
         "Description": "A native Plasma interface for batctl",
+        "ExtraDescription": "Inspect battery state and apply charging-threshold presets from the bundled batctl, without leaving the panel.",
         "Icon": "battery",
         "Id": "org.batctl.plasma",
         "License": "MIT",
         "Name": "Batctl Battery Manager",
-        "Version": "0.1.0",
+        "Version": "0.1.1",
         "Website": "https://github.com/Ooooze/batctl"
     },
     "X-Plasma-API-Minimum-Version": "6.0",
+    "X-Plasma-NotificationArea": true,
+    "X-Plasma-NotificationAreaCategory": "Hardware",
     "KPackageStructure": "Plasma/Applet"
 }

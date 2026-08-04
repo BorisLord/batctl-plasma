@@ -6,29 +6,29 @@ FIRST VIEWPORT: device identity and refresh lead into battery readings; availabl
 FORM: compact operate-mode system utility, deliberately following the standard Plasma panel-widget pattern.
 */
 
+pragma ComponentBehavior: Bound
+
 import QtQuick
 import QtQuick.Layouts
+import org.batctl.plasma
 import org.kde.kirigami as Kirigami
-import org.kde.plasma.components as PlasmaComponents
+import org.kde.plasma.components as PlasmaComponents3
 import org.kde.plasma.plasmoid
-import "backend" as Backend
 
 PlasmoidItem {
     id: root
 
     Plasmoid.icon: "battery"
     toolTipMainText: "Battery charge thresholds"
-    toolTipSubText: backend.compactText.length > 0
-        ? backend.compactText + "%"
-        : "Open battery controls"
+    toolTipSubText: backend.compactText.length > 0 ? backend.compactText + "%" : "Open battery controls"
 
-    Backend.BatctlBackend {
+    BatctlBackend {
         id: backend
     }
 
     onExpandedChanged: {
         if (root.expanded) {
-            backend.refresh()
+            backend.refresh();
         }
     }
 
@@ -57,7 +57,7 @@ PlasmoidItem {
                 implicitHeight: implicitWidth
             }
 
-            PlasmaComponents.Label {
+            PlasmaComponents3.Label {
                 visible: backend.compactText.length > 0 && root.width >= implicitWidth + Kirigami.Units.gridUnit * 2
                 text: backend.compactText
             }
@@ -77,7 +77,7 @@ PlasmoidItem {
             onTriggered: backend.refresh()
         }
 
-        PlasmaComponents.ScrollView {
+        PlasmaComponents3.ScrollView {
             anchors.fill: parent
             contentWidth: availableWidth
 
@@ -93,14 +93,14 @@ PlasmoidItem {
                         Layout.fillWidth: true
                         spacing: 0
 
-                        PlasmaComponents.Label {
+                        PlasmaComponents3.Label {
                             Layout.fillWidth: true
                             text: backend.product.length > 0 ? backend.product : "Battery manager"
                             font.weight: Font.DemiBold
                             elide: Text.ElideRight
                         }
 
-                        PlasmaComponents.Label {
+                        PlasmaComponents3.Label {
                             Layout.fillWidth: true
                             text: backend.backend.length > 0 ? backend.backend + " backend" : "Powered by batctl"
                             color: Kirigami.Theme.disabledTextColor
@@ -108,14 +108,14 @@ PlasmoidItem {
                         }
                     }
 
-                    PlasmaComponents.ToolButton {
+                    PlasmaComponents3.ToolButton {
                         icon.name: "view-refresh"
                         text: "Refresh"
-                        display: PlasmaComponents.AbstractButton.IconOnly
+                        display: PlasmaComponents3.AbstractButton.IconOnly
                         enabled: !backend.busy
                         onClicked: backend.refresh()
-                        PlasmaComponents.ToolTip.text: text
-                        PlasmaComponents.ToolTip.visible: hovered
+                        PlasmaComponents3.ToolTip.text: text
+                        PlasmaComponents3.ToolTip.visible: hovered
                     }
                 }
 
@@ -138,7 +138,7 @@ PlasmoidItem {
                     visible: backend.installed
                     spacing: Kirigami.Units.smallSpacing
 
-                    PlasmaComponents.Label {
+                    PlasmaComponents3.Label {
                         text: "Batteries"
                         font.weight: Font.DemiBold
                     }
@@ -147,31 +147,32 @@ PlasmoidItem {
                         model: backend.batteries
 
                         delegate: ColumnLayout {
-                            required property var modelData
+                            id: batteryDelegate
+                            required property var battery
                             Layout.fillWidth: true
                             spacing: Kirigami.Units.smallSpacing
 
                             RowLayout {
                                 Layout.fillWidth: true
 
-                                PlasmaComponents.Label {
+                                PlasmaComponents3.Label {
                                     Layout.fillWidth: true
-                                    text: modelData.name + "  " + modelData.capacity
+                                    text: batteryDelegate.battery.name + "  " + batteryDelegate.battery.capacity
                                     font.weight: Font.Medium
                                 }
 
-                                PlasmaComponents.Label {
-                                    text: modelData.status
+                                PlasmaComponents3.Label {
+                                    text: batteryDelegate.battery.status
                                     color: Kirigami.Theme.disabledTextColor
                                 }
                             }
 
-                            PlasmaComponents.ProgressBar {
+                            PlasmaComponents3.ProgressBar {
                                 Layout.fillWidth: true
                                 from: 0
                                 to: 100
-                                value: parseInt(modelData.capacity) || 0
-                                Accessible.name: modelData.name + " charge: " + modelData.capacity
+                                value: parseInt(batteryDelegate.battery.capacity) || 0
+                                Accessible.name: batteryDelegate.battery.name + " charge: " + batteryDelegate.battery.capacity
                             }
 
                             GridLayout {
@@ -180,18 +181,27 @@ PlasmoidItem {
                                 columnSpacing: Kirigami.Units.largeSpacing
                                 rowSpacing: Kirigami.Units.smallSpacing
 
-                                PlasmaComponents.Label { text: "Thresholds"; color: Kirigami.Theme.disabledTextColor }
-                                PlasmaComponents.Label {
-                                    text: modelData.startThreshold !== undefined && modelData.stopThreshold !== undefined
-                                        ? modelData.startThreshold + "–" + modelData.stopThreshold + "%"
-                                        : modelData.stopThreshold !== undefined
-                                            ? "Stop at " + modelData.stopThreshold + "%"
-                                            : "Not exposed"
+                                PlasmaComponents3.Label {
+                                    text: "Thresholds"
+                                    color: Kirigami.Theme.disabledTextColor
                                 }
-                                PlasmaComponents.Label { text: "Health"; color: Kirigami.Theme.disabledTextColor }
-                                PlasmaComponents.Label { text: modelData.health + " · " + modelData.cycles + " cycles" }
-                                PlasmaComponents.Label { text: "Behaviour"; color: Kirigami.Theme.disabledTextColor }
-                                PlasmaComponents.Label { text: modelData.behaviour }
+                                PlasmaComponents3.Label {
+                                    text: batteryDelegate.battery.startThreshold !== undefined && batteryDelegate.battery.stopThreshold !== undefined ? batteryDelegate.battery.startThreshold + "–" + batteryDelegate.battery.stopThreshold + "%" : batteryDelegate.battery.stopThreshold !== undefined ? "Stop at " + batteryDelegate.battery.stopThreshold + "%" : "Not exposed"
+                                }
+                                PlasmaComponents3.Label {
+                                    text: "Health"
+                                    color: Kirigami.Theme.disabledTextColor
+                                }
+                                PlasmaComponents3.Label {
+                                    text: batteryDelegate.battery.health + " · " + batteryDelegate.battery.cycles + " cycles"
+                                }
+                                PlasmaComponents3.Label {
+                                    text: "Behaviour"
+                                    color: Kirigami.Theme.disabledTextColor
+                                }
+                                PlasmaComponents3.Label {
+                                    text: batteryDelegate.battery.behaviour
+                                }
                             }
                         }
                     }
@@ -202,7 +212,7 @@ PlasmoidItem {
                     visible: backend.installed
                     spacing: Kirigami.Units.smallSpacing
 
-                    PlasmaComponents.Label {
+                    PlasmaComponents3.Label {
                         text: "Presets from batctl"
                         font.weight: Font.DemiBold
                     }
@@ -216,12 +226,15 @@ PlasmoidItem {
                         Repeater {
                             model: backend.presets
 
-                            delegate: PlasmaComponents.Button {
-                                required property string modelData
+                            delegate: PlasmaComponents3.Button {
+                                id: presetButton
+                                required property string preset
                                 Layout.fillWidth: true
-                                text: modelData.replace(/-/g, " ").replace(/\b\w/g, function(letter) { return letter.toUpperCase(); })
+                                text: presetButton.preset.replace(/-/g, " ").replace(/\b\w/g, function (letter) {
+                                    return letter.toUpperCase();
+                                })
                                 enabled: !backend.busy
-                                onClicked: backend.applyPreset(modelData)
+                                onClicked: backend.applyPreset(presetButton.preset)
                             }
                         }
                     }
@@ -232,22 +245,18 @@ PlasmoidItem {
                     visible: backend.installed
 
                     Kirigami.Icon {
-                        source: backend.bootPersistence && backend.resumePersistence
-                            ? "security-high"
-                            : "security-low"
+                        source: backend.bootPersistence && backend.resumePersistence ? "security-high" : "security-low"
                         implicitWidth: Kirigami.Units.iconSizes.small
                         implicitHeight: implicitWidth
                     }
 
-                    PlasmaComponents.Label {
+                    PlasmaComponents3.Label {
                         Layout.fillWidth: true
-                        text: backend.bootPersistence && backend.resumePersistence
-                            ? "Persistent after restart and resume"
-                            : "Persistence is not fully enabled"
+                        text: backend.bootPersistence && backend.resumePersistence ? "Persistent after restart and resume" : "Persistence is not fully enabled"
                         color: Kirigami.Theme.disabledTextColor
                     }
 
-                    PlasmaComponents.Button {
+                    PlasmaComponents3.Button {
                         text: backend.bootPersistence && backend.resumePersistence ? "Disable" : "Enable"
                         enabled: !backend.busy
                         onClicked: backend.setPersistence(!(backend.bootPersistence && backend.resumePersistence))
@@ -258,14 +267,14 @@ PlasmoidItem {
                     Layout.fillWidth: true
                     visible: !backend.installed
 
-                    PlasmaComponents.Label {
+                    PlasmaComponents3.Label {
                         Layout.fillWidth: true
                         wrapMode: Text.Wrap
                         text: "The bundled batctl binary is missing. Reinstall Batctl Battery Manager to repair the installation."
                     }
                 }
 
-                PlasmaComponents.BusyIndicator {
+                PlasmaComponents3.BusyIndicator {
                     Layout.alignment: Qt.AlignHCenter
                     visible: backend.busy
                     running: visible

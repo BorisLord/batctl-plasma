@@ -19,7 +19,10 @@ BATCTL_DIR="/usr/lib/batctl-plasma"
 POLICY_DST="/usr/share/polkit-1/actions/${PLUGIN_ID}.policy"
 REPO="BorisLord/batctl-plasma"
 
-die() { printf 'error: %s\n' "$*" >&2; exit 1; }
+die() {
+    printf 'error: %s\n' "$*" >&2
+    exit 1
+}
 
 need() { command -v "$1" >/dev/null 2>&1 || die "missing required command: $1"; }
 
@@ -27,22 +30,28 @@ need curl
 need tar
 need kpackagetool6
 need pkexec
+need qmake6
+
+# Resolve the host's QML module dir (mirrors the CMake logic at build time).
+QML_DIR="$(qmake6 -query QT_INSTALL_QML)"
+[[ -n "$QML_DIR" ]] || QML_DIR="/usr/lib/qt6/qml"
+QML_PLUGIN_DIR="${QML_DIR}/org/batctl/plasma"
 
 # ---- host detection ---------------------------------------------------------
 
 arch="$(uname -m)"
 case "$arch" in
-    x86_64)  asset_arch="x86_64"  ;;
+    x86_64) asset_arch="x86_64" ;;
     aarch64) asset_arch="aarch64" ;;
-    *)       die "unsupported architecture: $arch" ;;
+    *) die "unsupported architecture: $arch" ;;
 esac
 
 . /etc/os-release 2>/dev/null || die "cannot read /etc/os-release; unsupported distribution"
 distro_id="${ID:-}"
 distro_family=""
 case "$distro_id" in
-    fedora)                       distro_family="fedora" ;;
-    ubuntu|debian|linuxmint|pop)  distro_family="ubuntu" ;;
+    fedora) distro_family="fedora" ;;
+    ubuntu | debian | linuxmint | pop) distro_family="ubuntu" ;;
     *) die "unsupported distribution: ${distro_id:-unknown}. Use the manual build from the README." ;;
 esac
 
@@ -51,7 +60,7 @@ esac
 tag="${BATCTL_PLASMA_TAG:-}"
 if [[ -z "$tag" ]]; then
     tag="$(curl -fsSL "https://api.github.com/repos/${REPO}/releases/latest" \
-           | grep -m1 '"tag_name"' | sed -E 's/.*"([^"]+)".*/\1/')"
+        | grep -m1 '"tag_name"' | sed -E 's/.*"([^"]+)".*/\1/')"
     [[ -n "$tag" ]] || die "could not determine latest release tag"
 fi
 
@@ -67,12 +76,15 @@ printf 'Downloading %s...\n' "$asset"
 curl -fsSL -o "${tmp}/${asset}" "$url" || die "download failed: $url"
 tar -xzf "${tmp}/${asset}" -C "$tmp"
 
-[[ -d "${tmp}/package" ]]             || die "tarball missing package/ directory"
-[[ -f "${tmp}/batctl" ]]              || die "tarball missing bundled batctl binary"
+[[ -d "${tmp}/package" ]] || die "tarball missing package/ directory"
+[[ -d "${tmp}/qml" ]] || die "tarball missing qml/ directory (C++ plugin)"
+[[ -f "${tmp}/qml/libbatctlbackend.so" ]] || die "tarball missing libbatctlbackend.so"
+[[ -f "${tmp}/qml/qmldir" ]] || die "tarball missing qml/qmldir"
+[[ -f "${tmp}/batctl" ]] || die "tarball missing bundled batctl binary"
 [[ -f "${tmp}/${PLUGIN_ID}.policy" ]] || die "tarball missing polkit policy"
 [[ -f "${tmp}/THIRD_PARTY_LICENSES.md" ]] || die "tarball missing THIRD_PARTY_LICENSES.md"
 
-# ---- install plasmoid (user-local) -----------------------------------------
+# ---- install plasmoid kpackage (user-local) --------------------------------
 
 if kpackagetool6 --type Plasma/Applet --show "$PLUGIN_ID" >/dev/null 2>&1; then
     kpackagetool6 --type Plasma/Applet --upgrade "${tmp}/package"
@@ -80,11 +92,16 @@ else
     kpackagetool6 --type Plasma/Applet --install "${tmp}/package"
 fi
 
-# ---- install bundled batctl + polkit policy (system, one prompt) -----------
+# ---- install C++ plugin + bundled batctl + polkit policy (system, one prompt)
 
-# Single pkexec invocation installs both files so the user authenticates once.
+# Single pkexec invocation so the user authenticates once. The C++ QML plugin
+# goes to the host QML module dir (resolved above); batctl and the policy to
+# their canonical system locations.
 pkexec sh -c "
     set -e
+    install -d -o root -g root -m 0755 '${QML_PLUGIN_DIR}'
+    install -o root -g root -m 0755 '${tmp}/qml/libbatctlbackend.so' '${QML_PLUGIN_DIR}/libbatctlbackend.so'
+    install -o root -g root -m 0644 '${tmp}/qml/qmldir' '${QML_PLUGIN_DIR}/qmldir'
     install -d -o root -g root -m 0755 '${BATCTL_DIR}'
     install -o root -g root -m 0755 '${tmp}/batctl' '${BATCTL_DIR}/batctl'
     install -o root -g root -m 0644 '${tmp}/THIRD_PARTY_LICENSES.md' '${BATCTL_DIR}/THIRD_PARTY_LICENSES.md'

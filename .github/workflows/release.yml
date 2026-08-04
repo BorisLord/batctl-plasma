@@ -43,7 +43,7 @@ jobs:
           apt-get update
           DEBIAN_FRONTEND=noninteractive apt-get install -y git cmake ninja-build g++ qt6-base-dev qt6-declarative-dev curl tar ca-certificates
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Configure & build
         run: |
@@ -84,17 +84,22 @@ jobs:
         run: |
           tag="${GITHUB_REF_NAME}"
           asset_arch="$(uname -m)"
-          # Normalize aarch64 / x86_64 already match upstream's naming.
           asset="batctl-plasma-${tag}-${{ matrix.family }}-${asset_arch}.tar.gz"
+          # Copy the QML-only kpackage.
           cp -r build/package staging/package
+          # Copy the C++ plugin (.so + qmldir) into a flat qml/ dir; install.sh
+          # resolves the host QML module path and installs them there.
+          mkdir -p staging/qml
+          cp build/staging/*/usr/lib*/qt6/qml/org/batctl/plasma/libbatctlbackend.so staging/qml/
+          cp plugin/qmldir staging/qml/
           cp polkit/org.batctl.plasma.policy staging/
           cp scripts/install.sh staging/install.sh
           cp THIRD_PARTY_LICENSES.md staging/
-          tar -C staging -czf "$asset" package batctl org.batctl.plasma.policy install.sh THIRD_PARTY_LICENSES.md
+          tar -C staging -czf "$asset" package qml batctl org.batctl.plasma.policy install.sh THIRD_PARTY_LICENSES.md
           echo "ASSET=$asset" >> "$GITHUB_ENV"
 
       - name: Upload asset to release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: ${{ env.ASSET }}
 
@@ -103,7 +108,7 @@ jobs:
   publish-installer:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: softprops/action-gh-release@v2
+      - uses: actions/checkout@v5
+      - uses: softprops/action-gh-release@v3
         with:
           files: scripts/install.sh

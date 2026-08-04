@@ -1,2 +1,2 @@
-module backend
+module org.batctl.plasma
 plugin batctlbackend

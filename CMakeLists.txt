@@ -1,6 +1,6 @@
-cmake_minimum_required(VERSION 3.21)
+cmake_minimum_required(VERSION 3.21...4.0)
 
-project(batctl-plasma VERSION 0.1.0 LANGUAGES CXX)
+project(batctl-plasma VERSION 0.1.1 LANGUAGES CXX)
 
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_CXX_STANDARD 20)
@@ -18,6 +18,23 @@ endif()
 
 find_package(Qt6 6.6 REQUIRED COMPONENTS Core Qml Test)
 
+# Resolve the system QML install dir the same way as third-party Plasma widgets
+# (kurve, ActionPad): query qmake rather than depending on ECM. The C++ plugin
+# is installed there as a URI module (org.batctl.plasma), separate from the
+# QML-only kpackage.
+execute_process(
+    COMMAND ${QT_QMAKE_EXECUTABLE} -query QT_INSTALL_QML
+    OUTPUT_VARIABLE QT_INSTALL_QML
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+if(NOT QT_INSTALL_QML)
+    set(QT_INSTALL_QML "/usr/lib/qt6/qml")
+endif()
+set(QML_PLUGIN_DIR "${QT_INSTALL_QML}/org/batctl/plasma")
+
+# URI of the C++ QML module. Must match plugin/qmldir and the QML import line.
+set(QML_MODULE_URI "org.batctl.plasma")
+
 set(BACKEND_SOURCES
     plugin/batctlbackend.cpp
     plugin/batctlbackend.h
@@ -33,13 +50,17 @@ target_link_libraries(batctlbackend PRIVATE Qt6::Core Qt6::Qml)
 target_compile_definitions(batctlbackend PRIVATE BATCTL_BIN_PATH="${BATCTL_BIN_PATH}")
 target_compile_options(batctlbackend PRIVATE -Wall -Wextra -Wpedantic -Werror)
 
+# Build the plugin into a staging tree that mirrors the system install layout,
+# so the release tarball can be assembled with a single DESTDIR install.
+set(STAGED_PLUGIN "${CMAKE_BINARY_DIR}/staging${QML_PLUGIN_DIR}")
+set_target_properties(batctlbackend PROPERTIES
+    LIBRARY_OUTPUT_DIRECTORY "${STAGED_PLUGIN}"
+)
+file(COPY plugin/qmldir DESTINATION "${STAGED_PLUGIN}")
+
+# The Plasma kpackage is QML-only; the C++ plugin is a separate system install.
 set(STAGED_PACKAGE "${CMAKE_BINARY_DIR}/package")
 file(COPY package/ DESTINATION "${STAGED_PACKAGE}")
-file(COPY plugin/qmldir DESTINATION "${STAGED_PACKAGE}/contents/ui/backend")
-
-set_target_properties(batctlbackend PROPERTIES
-    LIBRARY_OUTPUT_DIRECTORY "${STAGED_PACKAGE}/contents/ui/backend"
-)
 
 enable_testing()
 qt_add_executable(batctlbackend_test
@@ -52,8 +73,10 @@ target_compile_definitions(batctlbackend_test PRIVATE BATCTL_BIN_PATH="${BATCTL_
 target_compile_options(batctlbackend_test PRIVATE -Wall -Wextra -Wpedantic -Werror)
 add_test(NAME batctlbackend_test COMMAND batctlbackend_test)
 
-# Reproducible user-local install. Used by scripts/install.sh and the CI
-# packaging step. DESTDIR redirects everything for tarball assembly.
+# Reproducible install. Used by scripts/install.sh and the CI packaging step.
+# DESTDIR redirects everything for tarball assembly.
+install(TARGETS batctlbackend DESTINATION "${QML_PLUGIN_DIR}")
+install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/plugin/qmldir" DESTINATION "${QML_PLUGIN_DIR}")
 install(DIRECTORY "${STAGED_PACKAGE}/"
         DESTINATION share/plasma/plasmoids/org.batctl.plasma
         FILES_MATCHING PATTERN "*")
