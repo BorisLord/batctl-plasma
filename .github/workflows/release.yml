@@ -1,0 +1,107 @@
+# Builds precompiled tarballs of Batctl Battery Manager for Fedora and Ubuntu,
+# bundles the matching upstream batctl binary, and attaches one tarball per
+# (distro, arch) to the GitHub release that triggered the run.
+#
+# Triggered by pushing a tag matching v*. The release must already exist or be
+# created by the workflow (created automatically via softprops/action-gh-release).
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Fedora: build in a container to get the right Qt6 ABI.
+          - distro: fedora
+            family: fedora
+            container: fedora:41
+          # Ubuntu 24.04 covers Debian 12+ and recent derivatives.
+          - distro: ubuntu
+            family: ubuntu
+            container: ubuntu:24.04
+    runs-on: ubuntu-latest
+    container: ${{ matrix.container }}
+    steps:
+      - name: Install build dependencies (Fedora)
+        if: matrix.distro == 'fedora'
+        run: |
+          dnf install -y git cmake ninja-build gcc-c++ qt6-qtbase-devel qt6-qtdeclarative-devel curl tar
+
+      - name: Install build dependencies (Ubuntu)
+        if: matrix.distro == 'ubuntu'
+        run: |
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y git cmake ninja-build g++ qt6-base-dev qt6-declarative-dev curl tar ca-certificates
+
+      - uses: actions/checkout@v4
+
+      - name: Configure & build
+        run: |
+          cmake -S . -B build -G Ninja
+          cmake --build build --parallel
+          ctest --test-dir build --output-on-failure
+
+      - name: Resolve latest batctl release tag
+        id: batctl
+        run: |
+          tag="$(curl -fsSL https://api.github.com/repos/Ooooze/batctl/releases/latest \
+                 | grep -m1 '"tag_name"' | sed -E 's/.*"([^"]+)".*/\1/')"
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+          echo "Resolved batctl upstream tag: ${tag}"
+
+      - name: Download & extract bundled batctl (x86_64)
+        run: |
+          arch="$(uname -m)"
+          case "$arch" in
+            x86_64)  asset_arch="x86_64"  ;;
+            aarch64) asset_arch="aarch64" ;;
+            *) echo "unsupported arch: $arch"; exit 1 ;;
+          esac
+          ver="${{ steps.batctl.outputs.tag }}"
+          # Strip leading 'v' for the asset filename used by upstream.
+          bare="${ver#v}"
+          curl -fsSL -o batctl.tar.gz \
+            "https://github.com/Ooooze/batctl/releases/download/${ver}/batctl-${bare}-linux-${asset_arch}.tar.gz"
+          tar -xzf batctl.tar.gz
+          # Find the batctl binary (path varies across upstream releases).
+          bin="$(find . -type f -name batctl -perm -u+x | head -1)"
+          test -n "$bin"
+          mkdir -p staging
+          cp "$bin" staging/batctl
+          chmod 0755 staging/batctl
+
+      - name: Assemble release tarball
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          asset_arch="$(uname -m)"
+          # Normalize aarch64 / x86_64 already match upstream's naming.
+          asset="batctl-plasma-${tag}-${{ matrix.family }}-${asset_arch}.tar.gz"
+          cp -r build/package staging/package
+          cp polkit/org.batctl.plasma.policy staging/
+          cp scripts/install.sh staging/install.sh
+          cp THIRD_PARTY_LICENSES.md staging/
+          tar -C staging -czf "$asset" package batctl org.batctl.plasma.policy install.sh THIRD_PARTY_LICENSES.md
+          echo "ASSET=$asset" >> "$GITHUB_ENV"
+
+      - name: Upload asset to release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ env.ASSET }}
+
+  # Publishes the distro-agnostic installer once, so the curl|bash one-liner
+  # has a stable URL: releases/latest/download/install.sh
+  publish-installer:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: scripts/install.sh
