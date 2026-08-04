@@ -148,7 +148,7 @@ PlasmoidItem {
 
                         delegate: ColumnLayout {
                             id: batteryDelegate
-                            required property var battery
+                            required property var modelData
                             Layout.fillWidth: true
                             spacing: Kirigami.Units.smallSpacing
 
@@ -157,12 +157,12 @@ PlasmoidItem {
 
                                 PlasmaComponents3.Label {
                                     Layout.fillWidth: true
-                                    text: batteryDelegate.battery.name + "  " + batteryDelegate.battery.capacity
+                                    text: batteryDelegate.modelData.name + "  " + batteryDelegate.modelData.capacity
                                     font.weight: Font.Medium
                                 }
 
                                 PlasmaComponents3.Label {
-                                    text: batteryDelegate.battery.status
+                                    text: batteryDelegate.modelData.status
                                     color: Kirigami.Theme.disabledTextColor
                                 }
                             }
@@ -171,8 +171,8 @@ PlasmoidItem {
                                 Layout.fillWidth: true
                                 from: 0
                                 to: 100
-                                value: parseInt(batteryDelegate.battery.capacity) || 0
-                                Accessible.name: batteryDelegate.battery.name + " charge: " + batteryDelegate.battery.capacity
+                                value: parseInt(batteryDelegate.modelData.capacity) || 0
+                                Accessible.name: batteryDelegate.modelData.name + " charge: " + batteryDelegate.modelData.capacity
                             }
 
                             GridLayout {
@@ -186,21 +186,21 @@ PlasmoidItem {
                                     color: Kirigami.Theme.disabledTextColor
                                 }
                                 PlasmaComponents3.Label {
-                                    text: batteryDelegate.battery.startThreshold !== undefined && batteryDelegate.battery.stopThreshold !== undefined ? batteryDelegate.battery.startThreshold + "–" + batteryDelegate.battery.stopThreshold + "%" : batteryDelegate.battery.stopThreshold !== undefined ? "Stop at " + batteryDelegate.battery.stopThreshold + "%" : "Not exposed"
+                                    text: batteryDelegate.modelData.startThreshold !== undefined && batteryDelegate.modelData.stopThreshold !== undefined ? batteryDelegate.modelData.startThreshold + "–" + batteryDelegate.modelData.stopThreshold + "%" : batteryDelegate.modelData.stopThreshold !== undefined ? "Stop at " + batteryDelegate.modelData.stopThreshold + "%" : "Not exposed"
                                 }
                                 PlasmaComponents3.Label {
                                     text: "Health"
                                     color: Kirigami.Theme.disabledTextColor
                                 }
                                 PlasmaComponents3.Label {
-                                    text: batteryDelegate.battery.health + " · " + batteryDelegate.battery.cycles + " cycles"
+                                    text: batteryDelegate.modelData.health + " · " + batteryDelegate.modelData.cycles + " cycles"
                                 }
                                 PlasmaComponents3.Label {
                                     text: "Behaviour"
                                     color: Kirigami.Theme.disabledTextColor
                                 }
                                 PlasmaComponents3.Label {
-                                    text: batteryDelegate.battery.behaviour
+                                    text: batteryDelegate.modelData.behaviour
                                 }
                             }
                         }
@@ -228,13 +228,13 @@ PlasmoidItem {
 
                             delegate: PlasmaComponents3.Button {
                                 id: presetButton
-                                required property string preset
+                                required property string modelData
                                 Layout.fillWidth: true
-                                text: presetButton.preset.replace(/-/g, " ").replace(/\b\w/g, function (letter) {
+                                text: presetButton.modelData.replace(/-/g, " ").replace(/\b\w/g, function (letter) {
                                     return letter.toUpperCase();
                                 })
                                 enabled: !backend.busy
-                                onClicked: backend.applyPreset(presetButton.preset)
+                                onClicked: backend.applyPreset(presetButton.modelData)
                             }
                         }
                     }
