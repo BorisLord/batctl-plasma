@@ -1,0 +1,6 @@
+CompileFlags:
+  CompilationDatabase: build/
+
+# Suppress Qt's pervasive camelCase-backing-field noise so the editor stays quiet.
+Diagnostics:
+  Suppress: [bugprone-reserved-identifier]
