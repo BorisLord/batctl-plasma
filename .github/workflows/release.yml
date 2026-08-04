@@ -23,10 +23,12 @@ jobs:
           - distro: fedora
             family: fedora
             container: fedora:41
-          # Ubuntu 24.04 covers Debian 12+ and recent derivatives.
+          # Ubuntu 25.04 is the first Ubuntu to ship Qt 6.6+ (Qt 6.8), required
+          # by Plasma 6. Earlier Ubuntu releases (24.04=6.4, 24.10=6.6) cannot
+          # build against Plasma 6 components.
           - distro: ubuntu
             family: ubuntu
-            container: ubuntu:24.04
+            container: ubuntu:25.04
     runs-on: ubuntu-latest
     container: ${{ matrix.container }}
     steps:
