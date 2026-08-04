@@ -9,11 +9,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # get the exact Qt6 flags the build uses.
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-find_package(Qt6 6.4 REQUIRED COMPONENTS Core Qml Test)
-qt_standard_project_setup(REQUIRES 6.4)
-if(QT_KNOWN_POLICY_QTP0001)
-    qt_policy(SET QTP0001 NEW)
-endif()
+find_package(Qt6 6.6 REQUIRED COMPONENTS Core Qml Test)
+qt_standard_project_setup(REQUIRES 6.6)
 
 # Resolve the system QML install dir the same way as third-party Plasma widgets
 # (kurve, ActionPad): query qmake rather than depending on ECM. The C++ plugin
