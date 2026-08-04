@@ -26,7 +26,7 @@ BAT0 (SMP 5B11B79217)
   Behaviour:  auto (available: auto, inhibit-charge, force-discharge)
 
 Persistence:  boot=true  resume=true
-)" );
+)");
 
     const BatctlBackend::StatusSnapshot snapshot = BatctlBackend::parseStatus(output);
     QCOMPARE(snapshot.backend, QStringLiteral("ThinkPad"));
@@ -46,14 +46,15 @@ void BatctlBackendTest::parsesPresets()
   -h, --help            help for set
       --preset string   Apply a named preset (max-lifespan, balanced, full-charge, plugged-in)
       --start int       Start charge threshold (%)
-)" );
+)");
 
-    QCOMPARE(BatctlBackend::parsePresets(output), QStringList({
-        QStringLiteral("max-lifespan"),
-        QStringLiteral("balanced"),
-        QStringLiteral("full-charge"),
-        QStringLiteral("plugged-in"),
-    }));
+    QCOMPARE(BatctlBackend::parsePresets(output),
+             QStringList({
+                 QStringLiteral("max-lifespan"),
+                 QStringLiteral("balanced"),
+                 QStringLiteral("full-charge"),
+                 QStringLiteral("plugged-in"),
+             }));
 }
 
 void BatctlBackendTest::parsesDetect()
@@ -71,6 +72,5 @@ Supported features: threshold, behaviour
     QCOMPARE(identity.backend, QStringLiteral("ThinkPad"));
 }
 
-QTEST_MAIN(BatctlBackendTest)
+QTEST_GUILESS_MAIN(BatctlBackendTest)
 #include "batctlbackend_test.moc"
-

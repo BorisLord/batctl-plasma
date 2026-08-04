@@ -1,9 +1,9 @@
 #pragma once
 
-#include <functional>
 #include <QObject>
 #include <QStringList>
 #include <QVariantList>
+#include <functional>
 
 class QProcess;
 
@@ -68,9 +68,7 @@ Q_SIGNALS:
 
 private:
     void runReadCommand(const QStringList &arguments, const std::function<void(const QString &)> &onSuccess);
-    void runPrivilegedCommand(const QStringList &arguments,
-                              const std::function<void()> &onSuccess,
-                              const std::function<void()> &onFailure = {});
+    void runPrivilegedCommand(const QStringList &arguments, const std::function<void()> &onSuccess, const std::function<void()> &onFailure = {});
     void setBusy(bool busy);
     void setError(const QString &error);
     void setMessage(const QString &message);

@@ -1,0 +1,34 @@
+# Pragmatic clang-tidy config for a small Qt6/KDE C++ project.
+# Focuses on correctness (bugprone, cert), modernization (modernize),
+# and readability — without the verbose churn of the full KDE CI preset.
+# Driven by build/compile_commands.json (CMAKE_EXPORT_COMPILE_COMMANDS=ON).
+
+Checks: >
+  -*,
+  bugprone-*,
+  cert-*,
+  modernize-*,
+  performance-*,
+  readability-*,
+  -bugprone-easily-swappable-parameters,
+  -modernize-use-trailing-return-type,
+  -modernize-use-nodiscard,
+  -readability-magic-numbers,
+  -readability-identifier-length,
+  -readability-function-cognitive-complexity,
+  -readability-convert-member-functions-to-static,
+  -cert-err58-cpp,
+  -cppcoreguidelines-*,
+  -clang-analyzer-cplusplus*
+
+WarningsAsErrors: ''
+
+HeaderFilterRegex: '^(plugin|tests)/'
+
+CheckOptions:
+  - key:   readability-braces-around-statements.ShortStatementOnSameLine
+    value: 'true'
+  - key:   modernize-use-default-member-init.UseAssignment
+    value: 'true'
+
+FormatStyle: file

@@ -1,21 +1,27 @@
 #include "batctlbackend.h"
 
+#include <functional>
 #include <memory>
 #include <utility>
 
 #include <QFileInfo>
+#include <QObject>
 #include <QProcess>
 #include <QRegularExpression>
+#include <QString>
+#include <QStringList>
+#include <QVariantList>
 #include <QVariantMap>
 
 #ifndef BATCTL_BIN_PATH
 #error "BATCTL_BIN_PATH must be defined by the build system"
 #endif
 
-namespace {
+namespace
+{
 QString processError(QProcess *process)
 {
-    const QString stderrText = QString::fromUtf8(process->readAllStandardError()).trimmed();
+    QString stderrText = QString::fromUtf8(process->readAllStandardError()).trimmed();
     if (!stderrText.isEmpty()) {
         return stderrText;
     }
@@ -29,17 +35,50 @@ BatctlBackend::BatctlBackend(QObject *parent)
     refresh();
 }
 
-bool BatctlBackend::installed() const { return m_installed; }
-bool BatctlBackend::busy() const { return m_busy; }
-QString BatctlBackend::error() const { return m_error; }
-QString BatctlBackend::message() const { return m_message; }
-QString BatctlBackend::vendor() const { return m_vendor; }
-QString BatctlBackend::product() const { return m_product; }
-QString BatctlBackend::backend() const { return m_backend; }
-QVariantList BatctlBackend::batteries() const { return m_batteries; }
-QStringList BatctlBackend::presets() const { return m_presets; }
-bool BatctlBackend::bootPersistence() const { return m_bootPersistence; }
-bool BatctlBackend::resumePersistence() const { return m_resumePersistence; }
+bool BatctlBackend::installed() const
+{
+    return m_installed;
+}
+bool BatctlBackend::busy() const
+{
+    return m_busy;
+}
+QString BatctlBackend::error() const
+{
+    return m_error;
+}
+QString BatctlBackend::message() const
+{
+    return m_message;
+}
+QString BatctlBackend::vendor() const
+{
+    return m_vendor;
+}
+QString BatctlBackend::product() const
+{
+    return m_product;
+}
+QString BatctlBackend::backend() const
+{
+    return m_backend;
+}
+QVariantList BatctlBackend::batteries() const
+{
+    return m_batteries;
+}
+QStringList BatctlBackend::presets() const
+{
+    return m_presets;
+}
+bool BatctlBackend::bootPersistence() const
+{
+    return m_bootPersistence;
+}
+bool BatctlBackend::resumePersistence() const
+{
+    return m_resumePersistence;
+}
 
 QString BatctlBackend::compactText() const
 {
@@ -172,7 +211,7 @@ BatctlBackend::StatusSnapshot BatctlBackend::parseStatus(const QString &output)
         }
 
         if (!currentBattery.isEmpty()) {
-            const int separator = line.indexOf(':');
+            const auto separator = line.indexOf(':');
             if (separator >= 0) {
                 const QString key = line.left(separator).trimmed();
                 const QString value = line.mid(separator + 1).trimmed();
@@ -232,7 +271,7 @@ BatctlBackend::IdentitySnapshot BatctlBackend::parseDetect(const QString &output
 {
     IdentitySnapshot identity;
     for (const QString &rawLine : output.split('\n')) {
-        const int separator = rawLine.indexOf(':');
+        const auto separator = rawLine.indexOf(':');
         if (separator < 0) {
             continue;
         }
@@ -278,9 +317,7 @@ void BatctlBackend::runReadCommand(const QStringList &arguments, const std::func
     process->start(m_batctlPath, arguments);
 }
 
-void BatctlBackend::runPrivilegedCommand(const QStringList &arguments,
-                                         const std::function<void()> &onSuccess,
-                                         const std::function<void()> &onFailure)
+void BatctlBackend::runPrivilegedCommand(const QStringList &arguments, const std::function<void()> &onSuccess, const std::function<void()> &onFailure)
 {
     auto *process = new QProcess(this);
     QStringList privilegedArguments{m_batctlPath};
@@ -362,7 +399,9 @@ void BatctlBackend::refreshPersistenceAfterApply()
                 setBusy(false);
                 refresh();
             },
-            [this]() { refresh(); });
+            [this]() {
+                refresh();
+            });
         return;
     }
     setBusy(false);
