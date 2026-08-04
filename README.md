@@ -1,8 +1,8 @@
 # Batctl Battery Manager for Plasma
 
-A Plasma 6 panel widget that presents the capabilities of the bundled [`batctl`](https://github.com/Ooooze/batctl) through a native GUI.
+A Plasma 6 panel widget that presents the capabilities of [`batctl`](https://github.com/Ooooze/batctl) through a native GUI.
 
-The widget does not define hardware support or charging presets. It reads status from `batctl status`, discovers presets from `batctl set --help`, and applies the selected identifier with `batctl set --preset`. The `batctl` binary ships inside the plugin; no separate install is required.
+The widget does not define hardware support or charging presets. It reads status from `batctl status`, discovers presets from `batctl set --help`, and applies the selected identifier with `batctl set --preset`. The widget resolves `batctl` from the PATH at runtime (the standard Plasma convention); the installer below provides it if missing.
 
 ## Requirements
 
@@ -10,11 +10,11 @@ The widget does not define hardware support or charging presets. It reads status
 - Supported distribution: Fedora, or Ubuntu/Debian and derivatives
 - x86_64 or aarch64
 
-No build toolchain is needed. The installer downloads a precompiled package that already includes `batctl` and the Qt6 backend compiled against your distribution's Qt6.
+No build toolchain is needed. The installer downloads a precompiled package containing the Qt6 backend (compiled against your distribution's Qt6) and a `batctl` binary. If `batctl` is already on your PATH, the existing one is used as-is; otherwise the installer places it at `/usr/bin/batctl`.
 
 ## Install
 
-One-liner (downloads and installs everything, asks for your password once to install the bundled `batctl` and the Polkit policy):
+One-liner (downloads and installs everything, asks for your password once to install the C++ plugin, `batctl` if missing, and the Polkit policy):
 
 ```bash
 curl -fsSL https://github.com/BorisLord/batctl-plasma/releases/latest/download/install.sh | bash
@@ -68,6 +68,8 @@ plasmawindowed org.batctl.plasma
 ```bash
 ./scripts/uninstall.sh
 ```
+
+Removes the widget, the C++ plugin, and the Polkit policy. `batctl` itself is not removed — uninstall it via your package manager if you no longer need it.
 
 ## License
 

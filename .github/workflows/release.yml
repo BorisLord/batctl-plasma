@@ -43,7 +43,7 @@ jobs:
           apt-get update
           DEBIAN_FRONTEND=noninteractive apt-get install -y git cmake ninja-build g++ qt6-base-dev qt6-declarative-dev curl tar ca-certificates
 
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - name: Configure & build
         run: |
@@ -87,15 +87,16 @@ jobs:
           asset="batctl-plasma-${tag}-${{ matrix.family }}-${asset_arch}.tar.gz"
           # Copy the QML-only kpackage.
           cp -r build/package staging/package
-          # Copy the C++ plugin (.so + qmldir) into a flat qml/ dir; install.sh
+          # Copy the generated QML module into a flat qml/ dir; install.sh
           # resolves the host QML module path and installs them there. The .so
           # path embeds the host's QT_INSTALL_QML (lib/ vs lib/x86_64-linux-gnu/),
           # so resolve it with find rather than guessing the layout.
           mkdir -p staging/qml
           plugin_so="$(find build/staging -name libbatctlbackend.so | head -1)"
           test -n "$plugin_so"
-          cp "$plugin_so" staging/qml/
-          cp plugin/qmldir staging/qml/
+          plugin_dir="$(dirname "$plugin_so")"
+          cp "$plugin_dir/libbatctlbackend.so" "$plugin_dir/qmldir" \
+            "$plugin_dir/batctlbackend.qmltypes" staging/qml/
           cp polkit/org.batctl.plasma.policy staging/
           cp scripts/install.sh staging/install.sh
           cp THIRD_PARTY_LICENSES.md staging/
@@ -112,7 +113,7 @@ jobs:
   publish-installer:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: softprops/action-gh-release@v3
         with:
           files: scripts/install.sh

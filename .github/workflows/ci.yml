@@ -1,0 +1,35 @@
+# Runs the project's lint/format gate via mise on every push to main and on
+# pull requests, so style violations are caught before a release tag is cut.
+#
+# mise provisions the pinned linters (shellcheck, shfmt) from mise.toml; the
+# system provides clang-format, clang-tidy, qmllint, qmlformat via Qt6/C++.
+# The actual checks live in the `check` task in mise.toml, so CI and
+# local development run exactly the same commands.
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install Qt6/C++ toolchain (clang-format, clang-tidy, qmllint, qmlformat)
+        run: |
+          sudo apt-get update
+          DEBIAN_FRONTEND=noninteractive sudo apt-get install -y \
+            cmake ninja-build g++ \
+            qt6-base-dev qt6-declarative-dev \
+            clang-format clang-tidy
+
+      - uses: jdx/mise-action@v4
+        with:
+          cache: true
+          experimental: true
+
+      - name: Build, test, and lint (mise run check)
+        run: mise run check

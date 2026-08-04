@@ -6,8 +6,10 @@
 #
 # The script downloads a precompiled tarball from the GitHub release that
 # matches this host's distribution and architecture, installs the plasmoid
-# for the current user via kpackagetool6, then installs the bundled batctl
-# binary and the polkit policy system-wide (one pkexec prompt).
+# for the current user via kpackagetool6, then installs the C++ plugin and
+# the polkit policy system-wide (one pkexec prompt). batctl itself is
+# installed to /usr/bin/batctl only if it is not already on the PATH; an
+# existing batctl is used as-is and never overwritten.
 #
 # No build toolchain is required on the host. Set BATCTL_PLASMA_TAG=<tag> to
 # install a specific release instead of latest.
@@ -15,7 +17,6 @@
 set -euo pipefail
 
 PLUGIN_ID="org.batctl.plasma"
-BATCTL_DIR="/usr/lib/batctl-plasma"
 POLICY_DST="/usr/share/polkit-1/actions/${PLUGIN_ID}.policy"
 REPO="BorisLord/batctl-plasma"
 
@@ -80,6 +81,7 @@ tar -xzf "${tmp}/${asset}" -C "$tmp"
 [[ -d "${tmp}/qml" ]] || die "tarball missing qml/ directory (C++ plugin)"
 [[ -f "${tmp}/qml/libbatctlbackend.so" ]] || die "tarball missing libbatctlbackend.so"
 [[ -f "${tmp}/qml/qmldir" ]] || die "tarball missing qml/qmldir"
+[[ -f "${tmp}/qml/batctlbackend.qmltypes" ]] || die "tarball missing qml/batctlbackend.qmltypes"
 [[ -f "${tmp}/batctl" ]] || die "tarball missing bundled batctl binary"
 [[ -f "${tmp}/${PLUGIN_ID}.policy" ]] || die "tarball missing polkit policy"
 [[ -f "${tmp}/THIRD_PARTY_LICENSES.md" ]] || die "tarball missing THIRD_PARTY_LICENSES.md"
@@ -92,27 +94,29 @@ else
     kpackagetool6 --type Plasma/Applet --install "${tmp}/package"
 fi
 
-# ---- install C++ plugin + bundled batctl + polkit policy (system, one prompt)
+# ---- install C++ plugin + batctl (if missing) + polkit policy (system) ------
 
-# Detect an existing batctl on the host to inform the user. The widget always
-# uses its own bundled copy (compiled-in path), so this is informational only.
+# Convention Plasma: use the host's batctl if present, never overwrite it.
+# Only install our bundled copy to /usr/bin/batctl when none is on the PATH.
 existing_batctl="$(command -v batctl 2>/dev/null || true)"
-if [[ -n "$existing_batctl" && "$existing_batctl" != "${BATCTL_DIR}/batctl" ]]; then
-    printf 'Note: a batctl is already installed at %s.\n' "$existing_batctl"
-    printf 'The widget uses its own bundled copy at %s/batctl; the two are independent.\n\n' "$BATCTL_DIR"
+if [[ -n "$existing_batctl" ]]; then
+    printf 'batctl found at %s; using it as-is.\n\n' "$existing_batctl"
+    install_batctl=""
+else
+    printf 'batctl not found; will install to /usr/bin/batctl.\n\n'
+    install_batctl="install -o root -g root -m 0755 '${tmp}/batctl' '/usr/bin/batctl'"
 fi
 
 # Single pkexec invocation so the user authenticates once. The C++ QML plugin
-# goes to the host QML module dir (resolved above); batctl and the policy to
-# their canonical system locations.
+# goes to the host QML module dir; batctl (if missing) to /usr/bin; the policy
+# to its canonical system location.
 pkexec sh -c "
     set -e
     install -d -o root -g root -m 0755 '${QML_PLUGIN_DIR}'
     install -o root -g root -m 0755 '${tmp}/qml/libbatctlbackend.so' '${QML_PLUGIN_DIR}/libbatctlbackend.so'
     install -o root -g root -m 0644 '${tmp}/qml/qmldir' '${QML_PLUGIN_DIR}/qmldir'
-    install -d -o root -g root -m 0755 '${BATCTL_DIR}'
-    install -o root -g root -m 0755 '${tmp}/batctl' '${BATCTL_DIR}/batctl'
-    install -o root -g root -m 0644 '${tmp}/THIRD_PARTY_LICENSES.md' '${BATCTL_DIR}/THIRD_PARTY_LICENSES.md'
+    install -o root -g root -m 0644 '${tmp}/qml/batctlbackend.qmltypes' '${QML_PLUGIN_DIR}/batctlbackend.qmltypes'
+    ${install_batctl}
     install -o root -g root -m 0644 '${tmp}/${PLUGIN_ID}.policy' '${POLICY_DST}'
 "
 

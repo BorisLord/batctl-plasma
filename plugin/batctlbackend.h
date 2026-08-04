@@ -3,6 +3,7 @@
 #include <QObject>
 #include <QStringList>
 #include <QVariantList>
+#include <QtQmlIntegration/qqmlintegration.h>
 #include <functional>
 
 class QProcess;
@@ -10,6 +11,7 @@ class QProcess;
 class BatctlBackend : public QObject
 {
     Q_OBJECT
+    QML_ELEMENT
     Q_PROPERTY(bool installed READ installed NOTIFY dataChanged)
     Q_PROPERTY(bool busy READ busy NOTIFY busyChanged)
     Q_PROPERTY(QString error READ error NOTIFY errorChanged)

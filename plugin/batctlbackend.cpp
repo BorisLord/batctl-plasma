@@ -4,18 +4,14 @@
 #include <memory>
 #include <utility>
 
-#include <QFileInfo>
 #include <QObject>
 #include <QProcess>
 #include <QRegularExpression>
+#include <QStandardPaths>
 #include <QString>
 #include <QStringList>
 #include <QVariantList>
 #include <QVariantMap>
-
-#ifndef BATCTL_BIN_PATH
-#error "BATCTL_BIN_PATH must be defined by the build system"
-#endif
 
 namespace
 {
@@ -105,13 +101,12 @@ void BatctlBackend::refresh()
     }
 
     setError({});
-    m_batctlPath = QStringLiteral(BATCTL_BIN_PATH);
-    const QFileInfo batctlInfo(m_batctlPath);
-    m_installed = batctlInfo.isFile() && batctlInfo.isExecutable();
+    m_batctlPath = QStandardPaths::findExecutable(QStringLiteral("batctl"));
+    m_installed = !m_batctlPath.isEmpty();
     Q_EMIT dataChanged();
 
     if (!m_installed) {
-        setError(QStringLiteral("batctl is not installed at %1.").arg(m_batctlPath));
+        setError(QStringLiteral("batctl is not installed or not on PATH."));
         return;
     }
 
