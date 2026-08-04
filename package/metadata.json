@@ -1,0 +1,19 @@
+{
+    "KPlugin": {
+        "Authors": [
+            {
+                "Name": "batctl-plasma contributors"
+            }
+        ],
+        "Category": "System Information",
+        "Description": "A native Plasma interface for batctl",
+        "Icon": "battery",
+        "Id": "org.batctl.plasma",
+        "License": "MIT",
+        "Name": "Batctl Battery Manager",
+        "Version": "0.1.0",
+        "Website": "https://github.com/Ooooze/batctl"
+    },
+    "X-Plasma-API-Minimum-Version": "6.0",
+    "KPackageStructure": "Plasma/Applet"
+}
