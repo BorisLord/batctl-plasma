@@ -48,7 +48,7 @@ run = [
   "shellcheck -e SC1091 scripts/*.sh",
   "shfmt -d -i 4 -ci -bn scripts/*.sh",
   "clang-format --dry-run --Werror plugin/*.cpp plugin/*.h tests/*.cpp",
-  "clang-tidy -p build plugin/batctlbackend.cpp tests/batctlbackend_test.cpp",
+  "clang-tidy -p build --extra-arg=-Ibuild/batctlbackend_test_autogen/include plugin/batctlbackend.cpp tests/batctlbackend_test.cpp",
   "$QML_LINT -I $(find build/staging -type d -name qml -print -quit) package/contents/ui/main.qml",
   "$QML_FORMAT --dry-run package/contents/ui/main.qml",
 ]
@@ -75,7 +75,7 @@ run = [
   "shellcheck -e SC1091 scripts/*.sh",
   "shfmt -d -i 4 -ci -bn scripts/*.sh",
   "clang-format --dry-run --Werror plugin/*.cpp plugin/*.h tests/*.cpp",
-  "clang-tidy -p build plugin/batctlbackend.cpp tests/batctlbackend_test.cpp",
+  "clang-tidy -p build --extra-arg=-Ibuild/batctlbackend_test_autogen/include plugin/batctlbackend.cpp tests/batctlbackend_test.cpp",
   "$QML_LINT -I $(find build/staging -type d -name qml -print -quit) package/contents/ui/main.qml",
   "$QML_FORMAT --dry-run package/contents/ui/main.qml",
 ]
