@@ -88,9 +88,13 @@ jobs:
           # Copy the QML-only kpackage.
           cp -r build/package staging/package
           # Copy the C++ plugin (.so + qmldir) into a flat qml/ dir; install.sh
-          # resolves the host QML module path and installs them there.
+          # resolves the host QML module path and installs them there. The .so
+          # path embeds the host's QT_INSTALL_QML (lib/ vs lib/x86_64-linux-gnu/),
+          # so resolve it with find rather than guessing the layout.
           mkdir -p staging/qml
-          cp build/staging/*/usr/lib*/qt6/qml/org/batctl/plasma/libbatctlbackend.so staging/qml/
+          plugin_so="$(find build/staging -name libbatctlbackend.so | head -1)"
+          test -n "$plugin_so"
+          cp "$plugin_so" staging/qml/
           cp plugin/qmldir staging/qml/
           cp polkit/org.batctl.plasma.policy staging/
           cp scripts/install.sh staging/install.sh
