@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.21...4.0)
 
-project(batctl-plasma VERSION 0.1.1 LANGUAGES CXX)
+project(batctl-plasma VERSION 0.1.2 LANGUAGES CXX)
 
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_CXX_STANDARD 20)
