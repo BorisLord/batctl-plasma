@@ -2,7 +2,7 @@
 # Installs Batctl Battery Manager for the current user.
 #
 # End-user flow (curl | bash):
-#   curl -fsSL https://github.com/OWNER/REPO/releases/latest/download/install.sh | bash
+#   curl -fsSL https://github.com/BorisLord/batctl-plasma/releases/latest/download/install.sh | bash
 #
 # The script downloads a precompiled tarball from the GitHub release that
 # matches this host's distribution and architecture, installs the plasmoid
@@ -17,16 +17,11 @@ set -euo pipefail
 PLUGIN_ID="org.batctl.plasma"
 BATCTL_DIR="/usr/lib/batctl-plasma"
 POLICY_DST="/usr/share/polkit-1/actions/${PLUGIN_ID}.policy"
-# REPLACE ME: set this to OWNER/REPO before publishing the first release.
-REPO="REPLACE_ME/batctl-plasma"
+REPO="BorisLord/batctl-plasma"
 
 die() { printf 'error: %s\n' "$*" >&2; exit 1; }
 
 need() { command -v "$1" >/dev/null 2>&1 || die "missing required command: $1"; }
-
-if [[ "$REPO" == REPLACE_ME/* ]]; then
-    die "REPO is a placeholder. Set OWNER/REPO in scripts/install.sh and .github/workflows/release.yml before publishing."
-fi
 
 need curl
 need tar

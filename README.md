@@ -17,10 +17,10 @@ No build toolchain is needed. The installer downloads a precompiled package that
 One-liner (downloads and installs everything, asks for your password once to install the bundled `batctl` and the Polkit policy):
 
 ```bash
-curl -fsSL https://github.com/OWNER/REPO/releases/latest/download/install.sh | bash
+curl -fsSL https://github.com/BorisLord/batctl-plasma/releases/latest/download/install.sh | bash
 ```
 
-Replace `OWNER/REPO` with this project's GitHub slug, or download `install.sh` from the latest release and run it:
+Or download `install.sh` from the latest release and run it:
 
 ```bash
 ./install.sh
