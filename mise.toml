@@ -1,0 +1,76 @@
+# mise tasks for batctl-plasma. Run `mise tasks` to list them, `mise run <task>`.
+#
+# Build/runtime toolchain (cmake, ninja, gcc/g++, Qt6) is expected from the
+# system package manager (dnf/apt). Only the lint/format tools are pinned here.
+
+[tools]
+shellcheck = "latest"
+shfmt = "latest"
+
+[env]
+# Staging QML import path, used by qmllint to resolve the org.batctl.plasma
+# C++ module during development (before it is installed to the system QML dir).
+QML_IMPORT_PATH = "{{ config_root }}/build/staging/usr/lib/qt6/qml"
+
+[tasks.clean]
+description = "Remove the build directory"
+run = "rm -rf build"
+
+[tasks.build]
+description = "Configure (Ninja) and compile the C++ plugin + tests"
+run = [
+  "cmake -S . -B build -G Ninja",
+  "cmake --build build --parallel",
+]
+
+[tasks.test]
+description = "Run the unit tests"
+depends = ["build"]
+run = "ctest --test-dir build --output-on-failure"
+
+[tasks.format]
+description = "Apply shfmt + clang-format + qmlformat to all sources"
+run = [
+  "shfmt -w -i 4 -ci -bn scripts/*.sh",
+  "clang-format -i plugin/*.cpp plugin/*.h tests/*.cpp",
+  "qmlformat-qt6 -V package/contents/ui/main.qml > /tmp/_qf.qml && cp /tmp/_qf.qml package/contents/ui/main.qml && rm /tmp/_qf.qml",
+]
+
+[tasks.lint]
+description = "Run shellcheck + clang-format --dry-run + clang-tidy + qmllint + qmlformat --dry-run"
+depends = ["build"]
+run = [
+  "shellcheck -e SC1091 scripts/*.sh",
+  "shfmt -d -i 4 -ci -bn scripts/*.sh",
+  "clang-format --dry-run --Werror plugin/*.cpp plugin/*.h tests/*.cpp",
+  "clang-tidy -p build plugin/batctlbackend.cpp plugin/batctlplasmaplugin.cpp tests/batctlbackend_test.cpp",
+  "qmllint-qt6 package/contents/ui/main.qml",
+  "qmlformat-qt6 --dry-run package/contents/ui/main.qml",
+]
+
+[tasks.install-dev]
+description = "Install the C++ plugin system-wide (sudo) + the kpackage user-local, for local testing"
+depends = ["build"]
+run = [
+  "sudo cmake --install build",
+  "kpackagetool6 --type Plasma/Applet --upgrade build/package",
+]
+
+[tasks.uninstall]
+description = "Remove the plasmoid kpackage and the system C++ plugin + bundled batctl + polkit policy"
+run = "./scripts/uninstall.sh"
+
+[tasks.check]
+description = "Full local CI gate: clean build + tests + lint"
+run = [
+  "rm -rf build",
+  "cmake -S . -B build -G Ninja",
+  "cmake --build build --parallel",
+  "ctest --test-dir build --output-on-failure",
+  "shellcheck -e SC1091 scripts/*.sh",
+  "shfmt -d -i 4 -ci -bn scripts/*.sh",
+  "clang-format --dry-run --Werror plugin/*.cpp plugin/*.h tests/*.cpp",
+  "clang-tidy -p build plugin/batctlbackend.cpp plugin/batctlplasmaplugin.cpp tests/batctlbackend_test.cpp",
+  "qmllint-qt6 package/contents/ui/main.qml",
+  "qmlformat-qt6 --dry-run package/contents/ui/main.qml",
+]
