@@ -1,6 +1,7 @@
 /*
 THESIS: batctl remains the product; this surface removes terminal friction without copying its hardware logic.
-OWN-WORLD: native Plasma colors, spacing, typography, controls, and iconography with no independent visual skin.
+OWN-WORLD: Plasma spacing, typography, controls, and iconography; colors mirror the batctl TUI palette (see
+internal/tui/styles.go upstream) so the widget reads as the same product as the terminal tool.
 STORY: inspect actual battery state, choose an offered preset, and immediately verify the applied thresholds.
 FIRST VIEWPORT: device identity and refresh lead into battery readings; available presets are the primary actions.
 FORM: compact operate-mode system utility, deliberately following the standard Plasma panel-widget pattern.
@@ -17,6 +18,31 @@ import org.kde.plasma.plasmoid
 
 PlasmoidItem {
     id: root
+
+    // batctl TUI palette (truecolor). Source: github.com/Ooooze/batctl internal/tui/styles.go
+    QtObject {
+        id: palette
+        // titleStyle / accentStyle / selectedStyle / helpKeyStyle
+        readonly property color accent: "#FF6600"
+        // valueStyle (bold)
+        readonly property color value: "#FFFFFF"
+        // successStyle / gaugeFullStyle
+        readonly property color success: "#00CC66"
+        // warningStyle
+        readonly property color warning: "#FFAA00"
+        // errorStyle
+        readonly property color error: "#FF3333"
+        // labelStyle
+        readonly property color label: "#AAAAAA"
+        // subtitleStyle / statusBarStyle / helpDescStyle
+        readonly property color subtitle: "#888888"
+        // dimStyle
+        readonly property color dim: "#666666"
+        // gaugeEmptyStyle
+        readonly property color track: "#333333"
+        // boxStyle border
+        readonly property color border: "#444444"
+    }
 
     Plasmoid.icon: "battery"
     toolTipMainText: "Battery charge thresholds"
@@ -96,14 +122,15 @@ PlasmoidItem {
                         PlasmaComponents3.Label {
                             Layout.fillWidth: true
                             text: backend.product.length > 0 ? backend.product : "Battery manager"
-                            font.weight: Font.DemiBold
+                            font.weight: Font.Bold
+                            color: palette.accent
                             elide: Text.ElideRight
                         }
 
                         PlasmaComponents3.Label {
                             Layout.fillWidth: true
                             text: backend.backend.length > 0 ? backend.backend + " backend" : "Powered by batctl"
-                            color: Kirigami.Theme.disabledTextColor
+                            color: palette.subtitle
                             elide: Text.ElideRight
                         }
                     }
@@ -119,6 +146,8 @@ PlasmoidItem {
                     }
                 }
 
+                // Kirigami.InlineMessage colors are theme-driven by `type`; cannot override to
+                // palette.error/success without replacing the component (no public color property).
                 Kirigami.InlineMessage {
                     Layout.fillWidth: true
                     visible: backend.error.length > 0
@@ -141,6 +170,7 @@ PlasmoidItem {
                     PlasmaComponents3.Label {
                         text: "Batteries"
                         font.weight: Font.DemiBold
+                        color: palette.label
                     }
 
                     Repeater {
@@ -158,20 +188,34 @@ PlasmoidItem {
                                 PlasmaComponents3.Label {
                                     Layout.fillWidth: true
                                     text: batteryDelegate.modelData.name + "  " + batteryDelegate.modelData.capacity
-                                    font.weight: Font.Medium
+                                    font.weight: Font.Bold
+                                    color: palette.accent
                                 }
 
                                 PlasmaComponents3.Label {
                                     text: batteryDelegate.modelData.status
-                                    color: Kirigami.Theme.disabledTextColor
+                                    color: palette.dim
                                 }
                             }
 
-                            PlasmaComponents3.ProgressBar {
+                            // Charge gauge mirroring batctl: orange fill (#FF6600) on dark track (#333333)
+                            Rectangle {
                                 Layout.fillWidth: true
-                                from: 0
-                                to: 100
-                                value: parseInt(batteryDelegate.modelData.capacity) || 0
+                                Layout.preferredHeight: Kirigami.Units.largeSpacing
+                                radius: 2
+                                color: palette.track
+
+                                property real ratio: Math.max(0, Math.min(1, (parseInt(batteryDelegate.modelData.capacity) || 0) / 100))
+
+                                Rectangle {
+                                    anchors.left: parent.left
+                                    anchors.top: parent.top
+                                    anchors.bottom: parent.bottom
+                                    width: parent.width * parent.ratio
+                                    radius: parent.radius
+                                    color: palette.accent
+                                }
+
                                 Accessible.name: batteryDelegate.modelData.name + " charge: " + batteryDelegate.modelData.capacity
                             }
 
@@ -183,24 +227,30 @@ PlasmoidItem {
 
                                 PlasmaComponents3.Label {
                                     text: "Thresholds"
-                                    color: Kirigami.Theme.disabledTextColor
+                                    color: palette.label
                                 }
                                 PlasmaComponents3.Label {
                                     text: batteryDelegate.modelData.startThreshold !== undefined && batteryDelegate.modelData.stopThreshold !== undefined ? batteryDelegate.modelData.startThreshold + "–" + batteryDelegate.modelData.stopThreshold + "%" : batteryDelegate.modelData.stopThreshold !== undefined ? "Stop at " + batteryDelegate.modelData.stopThreshold + "%" : "Not exposed"
+                                    font.weight: Font.Bold
+                                    color: palette.value
                                 }
                                 PlasmaComponents3.Label {
                                     text: "Health"
-                                    color: Kirigami.Theme.disabledTextColor
+                                    color: palette.label
                                 }
                                 PlasmaComponents3.Label {
                                     text: batteryDelegate.modelData.health + " · " + batteryDelegate.modelData.cycles + " cycles"
+                                    font.weight: Font.Bold
+                                    color: palette.value
                                 }
                                 PlasmaComponents3.Label {
                                     text: "Behaviour"
-                                    color: Kirigami.Theme.disabledTextColor
+                                    color: palette.label
                                 }
                                 PlasmaComponents3.Label {
                                     text: batteryDelegate.modelData.behaviour
+                                    font.weight: Font.Bold
+                                    color: palette.value
                                 }
                             }
                         }
@@ -215,6 +265,7 @@ PlasmoidItem {
                     PlasmaComponents3.Label {
                         text: "Presets from batctl"
                         font.weight: Font.DemiBold
+                        color: palette.label
                     }
 
                     GridLayout {
@@ -248,12 +299,13 @@ PlasmoidItem {
                         source: backend.bootPersistence && backend.resumePersistence ? "security-high" : "security-low"
                         implicitWidth: Kirigami.Units.iconSizes.small
                         implicitHeight: implicitWidth
+                        color: backend.bootPersistence && backend.resumePersistence ? palette.success : palette.warning
                     }
 
                     PlasmaComponents3.Label {
                         Layout.fillWidth: true
                         text: backend.bootPersistence && backend.resumePersistence ? "Persistent after restart and resume" : "Persistence is not fully enabled"
-                        color: Kirigami.Theme.disabledTextColor
+                        color: backend.bootPersistence && backend.resumePersistence ? palette.success : palette.warning
                     }
 
                     PlasmaComponents3.Button {
