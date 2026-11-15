@@ -13,6 +13,8 @@ class BatctlBackend : public QObject
     Q_OBJECT
     QML_ELEMENT
     Q_PROPERTY(bool installed READ installed NOTIFY dataChanged)
+    Q_PROPERTY(bool ready READ ready NOTIFY dataChanged)
+    Q_PROPERTY(QString warning READ warning NOTIFY dataChanged)
     Q_PROPERTY(bool busy READ busy NOTIFY busyChanged)
     Q_PROPERTY(QString error READ error NOTIFY errorChanged)
     Q_PROPERTY(QString message READ message NOTIFY messageChanged)
@@ -28,6 +30,7 @@ class BatctlBackend : public QObject
 public:
     struct StatusSnapshot {
         QString backend;
+        bool valid = false;
         QVariantList batteries;
         bool bootPersistence = false;
         bool resumePersistence = false;
@@ -43,6 +46,8 @@ public:
 
     bool installed() const;
     bool busy() const;
+    bool ready() const;
+    QString warning() const;
     QString error() const;
     QString message() const;
     QString vendor() const;
@@ -69,6 +74,11 @@ Q_SIGNALS:
     void messageChanged();
 
 private:
+    friend class BatctlBackendTest;
+    void runCommand(const QString &program,
+                    const QStringList &arguments,
+                    const std::function<void(const QString &)> &onSuccess,
+                    const std::function<void()> &onFailure);
     void runReadCommand(const QStringList &arguments, const std::function<void(const QString &)> &onSuccess);
     void runPrivilegedCommand(const QStringList &arguments, const std::function<void()> &onSuccess, const std::function<void()> &onFailure = {});
     void setBusy(bool busy);
@@ -80,6 +90,10 @@ private:
     QString m_batctlPath;
     bool m_installed = false;
     bool m_busy = false;
+    bool m_statusValid = false;
+    QString m_warning;
+    QString m_writeError;
+    QString m_writeWarning;
     int m_pendingReads = 0;
     bool m_refreshPending = false;
     QString m_error;

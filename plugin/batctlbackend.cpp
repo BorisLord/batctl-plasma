@@ -4,26 +4,14 @@
 #include <memory>
 #include <utility>
 
+#include <QFileInfo>
 #include <QObject>
 #include <QProcess>
 #include <QRegularExpression>
-#include <QStandardPaths>
 #include <QString>
 #include <QStringList>
 #include <QVariantList>
 #include <QVariantMap>
-
-namespace
-{
-QString processError(QProcess *process)
-{
-    QString stderrText = QString::fromUtf8(process->readAllStandardError()).trimmed();
-    if (!stderrText.isEmpty()) {
-        return stderrText;
-    }
-    return process->errorString();
-}
-}
 
 BatctlBackend::BatctlBackend(QObject *parent)
     : QObject(parent)
@@ -34,6 +22,14 @@ BatctlBackend::BatctlBackend(QObject *parent)
 bool BatctlBackend::installed() const
 {
     return m_installed;
+}
+bool BatctlBackend::ready() const
+{
+    return m_installed && m_statusValid && !m_presets.isEmpty();
+}
+QString BatctlBackend::warning() const
+{
+    return m_warning;
 }
 bool BatctlBackend::busy() const
 {
@@ -84,10 +80,10 @@ QString BatctlBackend::compactText() const
     const QVariantMap battery = m_batteries.first().toMap();
     const int start = battery.value(QStringLiteral("startThreshold"), -1).toInt();
     const int stop = battery.value(QStringLiteral("stopThreshold"), -1).toInt();
-    if (start < 0 || stop < 0) {
+    if (stop < 0) {
         return battery.value(QStringLiteral("capacity")).toString();
     }
-    return QStringLiteral("%1–%2").arg(start).arg(stop);
+    return start < 0 ? QStringLiteral("%1%").arg(stop) : QStringLiteral("%1–%2%").arg(start).arg(stop);
 }
 
 void BatctlBackend::refresh()
@@ -100,13 +96,24 @@ void BatctlBackend::refresh()
         return;
     }
 
-    setError({});
-    m_batctlPath = QStandardPaths::findExecutable(QStringLiteral("batctl"));
-    m_installed = !m_batctlPath.isEmpty();
+    setError(m_writeError);
+    m_batctlPath = QStringLiteral("/usr/bin/batctl");
+    const QFileInfo executable(m_batctlPath);
+    m_installed =
+        executable.isFile() && executable.isExecutable() && executable.ownerId() == 0 && !(executable.permissions() & (QFile::WriteGroup | QFile::WriteOther));
+    m_statusValid = false;
+    m_presets.clear();
+    m_batteries.clear();
+    m_warning = m_writeWarning;
+    m_backend.clear();
+    m_vendor.clear();
+    m_product.clear();
+    m_bootPersistence = false;
+    m_resumePersistence = false;
     Q_EMIT dataChanged();
 
     if (!m_installed) {
-        setError(QStringLiteral("batctl is not installed or not on PATH."));
+        setError(QStringLiteral("Install the battery manager batctl as a root-owned executable at /usr/bin/batctl."));
         return;
     }
 
@@ -115,6 +122,10 @@ void BatctlBackend::refresh()
 
     runReadCommand({QStringLiteral("status")}, [this](const QString &output) {
         const StatusSnapshot snapshot = parseStatus(output);
+        m_statusValid = snapshot.valid;
+        if (!snapshot.valid) {
+            setError(QStringLiteral("batctl returned an invalid battery status."));
+        }
         m_backend = snapshot.backend;
         m_batteries = snapshot.batteries;
         m_bootPersistence = snapshot.bootPersistence;
@@ -145,10 +156,13 @@ void BatctlBackend::refresh()
 
 void BatctlBackend::applyPreset(const QString &preset)
 {
-    if (m_busy || !m_presets.contains(preset)) {
+    if (m_busy || !ready() || !m_presets.contains(preset)) {
         return;
     }
 
+    m_writeError.clear();
+    m_writeWarning.clear();
+    m_warning.clear();
     setError({});
     setMessage({});
     setBusy(true);
@@ -160,10 +174,13 @@ void BatctlBackend::applyPreset(const QString &preset)
 
 void BatctlBackend::setPersistence(bool enabled)
 {
-    if (m_busy) {
+    if (m_busy || !ready()) {
         return;
     }
 
+    m_writeError.clear();
+    m_writeWarning.clear();
+    m_warning.clear();
     setError({});
     setMessage({});
     setBusy(true);
@@ -179,8 +196,8 @@ BatctlBackend::StatusSnapshot BatctlBackend::parseStatus(const QString &output)
 {
     StatusSnapshot snapshot;
     QVariantMap currentBattery;
-    const QRegularExpression batteryHeader(QStringLiteral("^(BAT\\d+) \\((.*)\\)$"));
-    const QRegularExpression thresholds(QStringLiteral("start=(\\d+)% stop=(\\d+)%"));
+    const QRegularExpression batteryHeader(QStringLiteral("^([^\\s:]+) \\((.*)\\)$"));
+    const QRegularExpression thresholds(QStringLiteral("(?:(?:start=(\\d+)%)\\s+)?stop=(\\d+)%"));
     const QRegularExpression persistence(QStringLiteral("boot=(true|false)\\s+resume=(true|false)"));
 
     const auto flushBattery = [&snapshot, &currentBattery]() {
@@ -223,7 +240,9 @@ BatctlBackend::StatusSnapshot BatctlBackend::parseStatus(const QString &output)
                 } else if (key == QStringLiteral("Thresholds")) {
                     const QRegularExpressionMatch match = thresholds.match(value);
                     if (match.hasMatch()) {
-                        currentBattery.insert(QStringLiteral("startThreshold"), match.captured(1).toInt());
+                        if (!match.captured(1).isEmpty()) {
+                            currentBattery.insert(QStringLiteral("startThreshold"), match.captured(1).toInt());
+                        }
                         currentBattery.insert(QStringLiteral("stopThreshold"), match.captured(2).toInt());
                     }
                 } else if (key == QStringLiteral("Behaviour")) {
@@ -235,12 +254,14 @@ BatctlBackend::StatusSnapshot BatctlBackend::parseStatus(const QString &output)
         const QRegularExpressionMatch persistenceMatch = persistence.match(line);
         if (persistenceMatch.hasMatch()) {
             flushBattery();
+            snapshot.valid = true;
             snapshot.bootPersistence = persistenceMatch.captured(1) == QStringLiteral("true");
             snapshot.resumePersistence = persistenceMatch.captured(2) == QStringLiteral("true");
         }
     }
 
     flushBattery();
+    snapshot.valid = snapshot.valid && !snapshot.backend.isEmpty() && !snapshot.batteries.isEmpty();
     return snapshot;
 }
 
@@ -283,68 +304,91 @@ BatctlBackend::IdentitySnapshot BatctlBackend::parseDetect(const QString &output
     return identity;
 }
 
-void BatctlBackend::runReadCommand(const QStringList &arguments, const std::function<void(const QString &)> &onSuccess)
+void BatctlBackend::runCommand(const QString &program,
+                               const QStringList &arguments,
+                               const std::function<void(const QString &)> &onSuccess,
+                               const std::function<void()> &onFailure)
 {
     auto *process = new QProcess(this);
-    // finished and errorOccurred(FailedToStart) may both fire depending on the
-    // platform; complete exactly once per process to avoid double-counting.
     auto done = std::make_shared<bool>(false);
-    connect(process, &QProcess::finished, this, [this, process, onSuccess, done](int exitCode, QProcess::ExitStatus exitStatus) {
+    const auto complete = [this, process, onSuccess, onFailure, done](bool success) {
         if (std::exchange(*done, true)) {
             return;
         }
-        if (exitStatus == QProcess::NormalExit && exitCode == 0) {
-            onSuccess(QString::fromUtf8(process->readAllStandardOutput()));
+        const QString output = QString::fromUtf8(process->readAllStandardOutput());
+        const QString diagnostic = QString::fromUtf8(process->readAllStandardError()).trimmed();
+        if (success) {
+            QStringList warnings;
+            if (!diagnostic.isEmpty()) {
+                warnings.append(diagnostic);
+            }
+            bool inWarning = false;
+            for (const QString &line : output.split('\n')) {
+                inWarning = inWarning || line.contains(QStringLiteral("Warning:"));
+                if (inWarning && !line.trimmed().isEmpty()) {
+                    warnings.append(line.trimmed());
+                }
+            }
+            if (!warnings.isEmpty()) {
+                if (!m_warning.isEmpty()) {
+                    m_warning += '\n';
+                }
+                m_warning += warnings.join('\n');
+                Q_EMIT dataChanged();
+            }
+            onSuccess(output);
         } else {
-            setError(processError(process));
+            setError(diagnostic.isEmpty()
+                         ? QStringLiteral("%1 failed: %2 (exit code %3)").arg(process->program(), process->errorString()).arg(process->exitCode())
+                         : diagnostic);
+            onFailure();
         }
         process->deleteLater();
-        finishRead();
+    };
+    connect(process, &QProcess::finished, this, [complete](int code, QProcess::ExitStatus status) {
+        complete(status == QProcess::NormalExit && code == 0);
     });
-    connect(process, &QProcess::errorOccurred, this, [this, process, done](QProcess::ProcessError error) {
-        if (error != QProcess::FailedToStart || std::exchange(*done, true)) {
-            return;
+    connect(process, &QProcess::errorOccurred, this, [complete](QProcess::ProcessError error) {
+        if (error == QProcess::FailedToStart) {
+            complete(false);
         }
-        setError(processError(process));
-        process->deleteLater();
-        finishRead();
     });
-    process->start(m_batctlPath, arguments);
+    process->start(program, arguments);
+}
+
+void BatctlBackend::runReadCommand(const QStringList &arguments, const std::function<void(const QString &)> &onSuccess)
+{
+    runCommand(
+        m_batctlPath,
+        arguments,
+        [this, onSuccess](const QString &output) {
+            onSuccess(output);
+            finishRead();
+        },
+        [this]() {
+            finishRead();
+        });
 }
 
 void BatctlBackend::runPrivilegedCommand(const QStringList &arguments, const std::function<void()> &onSuccess, const std::function<void()> &onFailure)
 {
-    auto *process = new QProcess(this);
     QStringList privilegedArguments{m_batctlPath};
     privilegedArguments.append(arguments);
-    auto done = std::make_shared<bool>(false);
-    connect(process, &QProcess::finished, this, [this, process, onSuccess, onFailure, done](int exitCode, QProcess::ExitStatus exitStatus) {
-        if (std::exchange(*done, true)) {
-            return;
-        }
-        if (exitStatus == QProcess::NormalExit && exitCode == 0) {
+    runCommand(
+        QStringLiteral("/usr/bin/pkexec"),
+        privilegedArguments,
+        [this, onSuccess](const QString &) {
+            m_writeWarning = m_warning;
             onSuccess();
-        } else {
-            setError(processError(process));
+        },
+        [this, onFailure]() {
+            m_writeError = m_error;
+            setMessage({});
             setBusy(false);
             if (onFailure) {
                 onFailure();
             }
-        }
-        process->deleteLater();
-    });
-    connect(process, &QProcess::errorOccurred, this, [this, process, onFailure, done](QProcess::ProcessError error) {
-        if (error != QProcess::FailedToStart || std::exchange(*done, true)) {
-            return;
-        }
-        setError(processError(process));
-        setBusy(false);
-        if (onFailure) {
-            onFailure();
-        }
-        process->deleteLater();
-    });
-    process->start(QStringLiteral("pkexec"), privilegedArguments);
+        });
 }
 
 void BatctlBackend::setBusy(bool busy)
@@ -358,10 +402,11 @@ void BatctlBackend::setBusy(bool busy)
 
 void BatctlBackend::setError(const QString &error)
 {
-    if (m_error == error) {
+    const QString combined = m_writeError.isEmpty() || error.startsWith(m_writeError) ? error : m_writeError + QStringLiteral("\n") + error;
+    if (m_error == combined) {
         return;
     }
-    m_error = error;
+    m_error = combined;
     Q_EMIT errorChanged();
 }
 
@@ -395,6 +440,7 @@ void BatctlBackend::refreshPersistenceAfterApply()
                 refresh();
             },
             [this]() {
+                m_writeError = QStringLiteral("Thresholds applied, but persistence could not be saved: %1").arg(m_error);
                 refresh();
             });
         return;
