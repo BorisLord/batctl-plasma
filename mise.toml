@@ -38,7 +38,7 @@ description = "Apply shfmt + clang-format + qmlformat to all sources"
 run = [
   "shfmt -w -i 4 -ci -bn scripts/*.sh",
   "clang-format -i plugin/*.cpp plugin/*.h tests/*.cpp",
-  "$QML_FORMAT -V package/contents/ui/main.qml > /tmp/_qf.qml && cp /tmp/_qf.qml package/contents/ui/main.qml && rm /tmp/_qf.qml",
+  "$QML_FORMAT -i package/contents/ui/main.qml",
 ]
 
 [tasks.lint]
@@ -49,33 +49,24 @@ run = [
   "shfmt -d -i 4 -ci -bn scripts/*.sh",
   "clang-format --dry-run --Werror plugin/*.cpp plugin/*.h tests/*.cpp",
   "clang-tidy -p build --extra-arg=-Ibuild/batctlbackend_test_autogen/include plugin/batctlbackend.cpp tests/batctlbackend_test.cpp",
-  "$QML_LINT -I $(find build/staging -type d -name qml -print -quit) package/contents/ui/main.qml",
+  "$QML_LINT --max-warnings 0 -I build/qml -i build/qml/org/batctl/plasma/qmldir package/contents/ui/main.qml",
   "$QML_FORMAT --dry-run package/contents/ui/main.qml",
 ]
 
 [tasks.install-dev]
-description = "Install the C++ plugin system-wide (sudo) + the kpackage user-local, for local testing"
+description = "Install the plugin, widget and Polkit policy system-wide (sudo)"
 depends = ["build"]
 run = [
   "sudo cmake --install build",
-  "kpackagetool6 --type Plasma/Applet --upgrade build/package",
 ]
 
 [tasks.uninstall]
-description = "Remove the plasmoid kpackage and the system C++ plugin + bundled batctl + polkit policy"
+description = "Remove the widget, C++ plugin and Polkit policy; keep batctl"
 run = "./scripts/uninstall.sh"
 
 [tasks.check]
 description = "Full local CI gate: clean build + tests + lint"
 run = [
-  "rm -rf build",
-  "cmake -S . -B build -G Ninja",
-  "cmake --build build --parallel",
-  "ctest --test-dir build --output-on-failure",
-  "shellcheck -e SC1091 scripts/*.sh",
-  "shfmt -d -i 4 -ci -bn scripts/*.sh",
-  "clang-format --dry-run --Werror plugin/*.cpp plugin/*.h tests/*.cpp",
-  "clang-tidy -p build --extra-arg=-Ibuild/batctlbackend_test_autogen/include plugin/batctlbackend.cpp tests/batctlbackend_test.cpp",
-  "$QML_LINT -I $(find build/staging -type d -name qml -print -quit) package/contents/ui/main.qml",
-  "$QML_FORMAT --dry-run package/contents/ui/main.qml",
+  "mise run clean",
+  "mise run test lint",
 ]

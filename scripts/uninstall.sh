@@ -1,26 +1,24 @@
 #!/usr/bin/env bash
-# Removes Batctl Battery Manager: the plasmoid kpackage (user-local) and the
-# C++ QML plugin + polkit policy (system-wide, one pkexec prompt).
-#
-# batctl itself is NOT removed: it may be used independently as a CLI tool and
-# may have been installed by the user's package manager. Remove it via your
-# package manager if desired.
-
+# batctl and its persistence configuration remain available to independent CLI users.
 set -euo pipefail
 
 PLUGIN_ID="org.batctl.plasma"
-POLICY_DST="/usr/share/polkit-1/actions/${PLUGIN_ID}.policy"
+QML_DIR="$(qmake6 -query QT_INSTALL_QML)"
+[[ "$QML_DIR" = /* && "$QML_DIR" != / ]] || {
+    printf 'Invalid QML directory\n' >&2
+    exit 1
+}
 
-QML_DIR="$(qmake6 -query QT_INSTALL_QML 2>/dev/null || echo /usr/lib/qt6/qml)"
-QML_PLUGIN_DIR="${QML_DIR}/org/batctl"
+if [[ -d "${XDG_DATA_HOME:-$HOME/.local/share}/plasma/plasmoids/$PLUGIN_ID" ]]; then
+    kpackagetool6 --type Plasma/Applet --remove "$PLUGIN_ID"
+fi
 
-kpackagetool6 --type Plasma/Applet --remove "$PLUGIN_ID" 2>/dev/null || true
+# The privileged shell expands its positional arguments.
+# shellcheck disable=SC2016
+pkexec sh -eu -c '
+    rm -rf -- "$1/org/batctl/plasma" /usr/share/plasma/plasmoids/org.batctl.plasma
+    rm -f -- /usr/share/polkit-1/actions/org.batctl.plasma.policy
+    rm -rf -- /usr/share/batctl-plasma /usr/share/doc/batctl-plasma
+' sh "$QML_DIR"
 
-# Remove the system C++ plugin dir and the polkit policy. batctl is left in
-# place (see header comment).
-pkexec sh -c "
-    rm -rf '${QML_PLUGIN_DIR}'
-    rm -f '${POLICY_DST}'
-"
-
-echo "Uninstalled. batctl itself was not removed; uninstall it via your package manager if desired."
+printf 'Uninstalled. /usr/bin/batctl and its persistence configuration were kept.\n'
