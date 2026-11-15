@@ -19,9 +19,11 @@ jobs:
       matrix:
         include:
           - distro: fedora
-            container: fedora:45
-          - distro: ubuntu
-            container: ubuntu:26.10
+            baseline: fedora43
+            container: fedora:43
+          - distro: debian
+            baseline: debian13
+            container: debian:13
     runs-on: ubuntu-latest
     container: ${{ matrix.container }}
     steps:
@@ -29,8 +31,8 @@ jobs:
         if: matrix.distro == 'fedora'
         run: dnf install -y git cmake ninja-build gcc-c++ qt6-qtbase-devel qt6-qtdeclarative-devel curl tar
 
-      - name: Install build dependencies (Ubuntu)
-        if: matrix.distro == 'ubuntu'
+      - name: Install build dependencies (Debian)
+        if: matrix.distro == 'debian'
         run: |
           apt-get update
           DEBIAN_FRONTEND=noninteractive apt-get install -y git cmake ninja-build g++ qt6-base-dev qt6-declarative-dev curl tar ca-certificates
@@ -53,14 +55,15 @@ jobs:
             "https://github.com/Ooooze/batctl/releases/download/${BATCTL_VERSION}/batctl-${BATCTL_VERSION#v}-linux-x86_64.tar.gz"
           tar -xzf batctl.tar.gz -C staging/usr/bin batctl
           staging/usr/bin/batctl set --help
-          asset="batctl-plasma-${GITHUB_REF_NAME}-${{ matrix.distro }}-x86_64.tar.gz"
-          tar -C staging -czf "$asset" usr
+          asset="batctl-plasma-${GITHUB_REF_NAME}-${{ matrix.baseline }}-x86_64.tar.gz"
+          qmake6 -query QT_VERSION > staging/qt-version
+          tar -C staging -czf "$asset" usr qt-version
           echo "ASSET=$asset" >> "$GITHUB_ENV"
 
       - uses: actions/upload-artifact@v7
         if: startsWith(github.ref, 'refs/tags/')
         with:
-          name: ${{ matrix.distro }}
+          name: ${{ matrix.baseline }}
           path: ${{ env.ASSET }}
           if-no-files-found: error
 

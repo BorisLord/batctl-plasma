@@ -7,14 +7,14 @@ The widget does not define hardware support or charging presets. It reads status
 ## Requirements
 
 - KDE Plasma 6 with Qt 6.6 or newer. Plasma 5 is not supported.
-- Precompiled packages target Fedora 45 and Ubuntu/Kubuntu 26.10 on x86_64.
-- Other distributions and architectures use the source build below with their native Qt 6 development packages.
+- x86_64 packages use Fedora 43 and Debian 13 as build baselines. The installer selects them for Fedora 43+, Debian 13+, and Ubuntu/Kubuntu 26.04+. Each package records its actual build Qt version; an older host Qt triggers a local build instead.
+- On other distributions (including derivatives without a matching distribution ID) and architectures, the same installer compiles the tagged source against the installed Qt. This requires CMake, Ninja, a C++20 compiler and Qt 6.6+ development packages; see Development below. It does not install system packages automatically.
 
-The binary installer requires `curl`, `tar`, `kpackagetool6`, `pkexec`, and `qmake6`. It downloads a precompiled package containing the Qt6 backend and a `batctl` binary. The Qt libraries must be compatible with the package's build distribution; a shared distribution family alone does not guarantee compatibility. An existing `/usr/bin/batctl` is kept only if it is the root-owned battery manager and cannot be modified by other users. A conflicting executable stops installation; it is never overwritten. If this path is absent, the installer adds the bundled binary there.
+The installer requires `curl`, `tar`, `kpackagetool6`, `pkexec`, and `qmake6`. It uses a matching precompiled package when available; otherwise it builds and tests the source before installation. A release without the selected baseline archive also falls back to source; other download failures stop installation. An existing `/usr/bin/batctl` is kept only if it is the root-owned battery manager and cannot be modified by other users. A conflicting executable stops installation; it is never overwritten. If this path is absent, the installer adds batctl v2026.3.13 on x86_64 or aarch64. On other architectures, install the battery manager at that path first.
 
 ## Install
 
-One-liner (downloads and installs everything, asks for your password once to install the C++ plugin, `batctl` if missing, and the Polkit policy):
+One-liner (downloads a binary or builds locally, then asks for your password once to install the C++ plugin, `batctl` if missing, and the Polkit policy):
 
 ```bash
 curl -fsSL https://github.com/BorisLord/batctl-plasma/releases/latest/download/install.sh | bash
@@ -30,9 +30,11 @@ Then open Plasma's widget picker (right-click a panel → Add Widgets) and add *
 
 The download link uses the latest published release, not the latest repository changes. New installer changes become available after a `v*` tag is pushed and the release workflow succeeds.
 
+The release workflow builds and tests the two baseline packages, then publishes them only after both builds succeed. Loading the unchanged Fedora 43 plugin was also verified on Fedora 44, and the unchanged Debian 13 plugin on Ubuntu 26.10. These checks cover plugin loading, not every desktop or hardware configuration.
+
 ## Development
 
-Building from source works across distributions and architectures with Plasma 6, CMake, a C++20 compiler, and Qt 6.6+ development packages. Install the battery manager at `/usr/bin/batctl` before using the widget; source installation does not download batctl.
+Building from source works across distributions and architectures with Plasma 6, CMake, Ninja, a C++20 compiler, and Qt 6.6+ development packages. These are also the prerequisites for the installer's automatic source build. A manual `cmake --install` does not download batctl; install the battery manager at `/usr/bin/batctl` before using the widget.
 
 Fedora:
 
